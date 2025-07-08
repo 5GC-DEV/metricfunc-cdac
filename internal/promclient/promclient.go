@@ -16,6 +16,7 @@ import (
 
 type PromStats struct {
 	coreSub     *prometheus.CounterVec
+	violSub     *prometheus.CounterVec
 	smfSvcStat  *prometheus.CounterVec
 	amfSvcStat  *prometheus.CounterVec
 	smfSessions *prometheus.GaugeVec
@@ -48,6 +49,11 @@ func initPromStats() *PromStats {
 			Help: "core subscriber info",
 		}, []string{"imsi", "ip_addr", "state", "smf_ip", "dnn", "slice", "upf"}),
 
+		violSub: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "viol_subscriber",
+			Help: "violated subscriber info",
+		}, []string{"imsi", "ip_addr", "state"}),
+
 		smfSessions: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "smf_pdu_sessions",
 			Help: "Number of SMF PDU sessions currently in the core",
@@ -73,6 +79,11 @@ func initPromStats() *PromStats {
 func (ps *PromStats) register() error {
 	if err := prometheus.Register(ps.coreSub); err != nil {
 		logger.PromLog.Errorf("register core subscriber detail stats failed: %v", err.Error())
+		return err
+	}
+
+	if err := prometheus.Register(ps.violSub); err != nil {
+		logger.PromLog.Errorf("register viol subscriber detail stats failed: %v", err.Error())
 		return err
 	}
 
@@ -104,7 +115,7 @@ func PushCoreSubData(imsi, ip_addr, state, smf_ip, dnn, slice, upf string) {
 		"adding subscriber data [%v, %v, %v, %v, %v, %v, %v]",
 		imsi, ip_addr, state, smf_ip, dnn, slice, upf,
 	)
-	promStats.coreSub.WithLabelValues(imsi, "", state, smf_ip, dnn, slice, upf).Inc()
+	promStats.coreSub.WithLabelValues(imsi, ip_addr, state, smf_ip, dnn, slice, upf).Inc()
 }
 
 func DeleteCoreSubData(imsi, ip_addr, state, smf_ip, dnn, slice, upf string) {
@@ -112,7 +123,15 @@ func DeleteCoreSubData(imsi, ip_addr, state, smf_ip, dnn, slice, upf string) {
 		"deleting subscriber data [%v, %v, %v, %v, %v, %v, %v]",
 		imsi, ip_addr, state, smf_ip, dnn, slice, upf,
 	)
-	promStats.coreSub.DeleteLabelValues(imsi, "", state, smf_ip, dnn, slice, upf)
+	promStats.coreSub.DeleteLabelValues(imsi, ip_addr, state, smf_ip, dnn, slice, upf)
+}
+
+func PushViolSubData(imsi, ip_addr, state string) {
+	logger.PromLog.Debugf(
+		"adding viol subscriber data [%v, %v, %v]",
+		imsi, ip_addr, state,
+	)
+	promStats.violSub.WithLabelValues(imsi, ip_addr, state).Inc()
 }
 
 // SetSessStats maintains Session level stats
@@ -121,7 +140,7 @@ func SetSmfSessStats(smfIp, slice, dnn, upf string, count uint64) {
 		"setting smf session count [%v] with labels [smfIp:%v, slice:%v, dnn:%v, upf:%v]",
 		count, smfIp, slice, dnn, upf,
 	)
-	promStats.smfSessions.WithLabelValues("", "", "", "").Set(float64(count))
+	promStats.smfSessions.WithLabelValues(smfIp, slice, dnn, upf).Set(float64(count))
 }
 
 func DeleteSmfSessStats(smfIp, slice, dnn, upf string) {
