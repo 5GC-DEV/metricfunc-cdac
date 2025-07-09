@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-FROM golang:1.23.2-bookworm AS builder
+FROM golang:1.24.3-bookworm AS builder
 
 WORKDIR $GOPATH/src/metricfunc
 COPY . .
 RUN make all
 
-FROM alpine:3.20 AS metricfunc
+FROM alpine:3.22 AS metricfunc
 
 LABEL maintainer="Aether SD-Core <dev@lists.aetherproject.org>" \
     description="Aether open source 5G Core Network" \
